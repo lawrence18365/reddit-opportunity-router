@@ -40,6 +40,7 @@ def test_seeded_registry_has_rollout_order_and_expansion_profiles():
         "quotetier",
         "restaurant-roster",
         "revenue-recovery",
+        "bc-direct-delivery",
     ]
     inactive = {project["id"] for project in config["projects"] if not project["enabled"]}
     assert {"bridal-os", "ratetap-mexico", "affordable-email-marketing"} <= inactive
@@ -102,6 +103,33 @@ def test_generic_single_signal_does_not_alert():
     assert portfolio.route_post(post, portfolio.load_config()) == []
 
 
+@pytest.mark.parametrize(
+    "post",
+    [
+        _post(
+            "selfpromo1",
+            "restaurantowners",
+            "Restaurant owners: I built an operations app",
+            "It includes employee scheduling and I am looking for feedback on my app.",
+        ),
+        _post(
+            "selfpromo2",
+            "landscaping",
+            "Your next customer will send an agent",
+            "I’m testing the first piece with Jobber and a quote workflow.",
+        ),
+        _post(
+            "nopitch1",
+            "smallbusiness",
+            "Need an automation system for estimates",
+            "People are mostly just pitching and I am not interested in paying anyone.",
+        ),
+    ],
+)
+def test_explicit_non_buyer_and_competing_builder_posts_are_excluded(post):
+    assert portfolio.route_post(post, portfolio.load_config()) == []
+
+
 def test_search_query_uses_configured_high_intent_terms():
     config = portfolio.load_config()
     project = next(item for item in config["projects"] if item["id"] == "restaurant-roster")
@@ -109,7 +137,57 @@ def test_search_query_uses_configured_high_intent_terms():
     assert '"staff scheduling"' in query
     assert '"scheduling software"' in query
     assert "7shifts" in query
+    assert "subreddit:Restaurant_Managers" in query
+    assert "subreddit:smallbusiness" in query
     assert len(query) <= 512
+
+
+@pytest.mark.parametrize(
+    ("post", "expected_project"),
+    [
+        (
+            _post(
+                "missedfresh",
+                "FreightBrokers",
+                "Brand new carrier sales rep",
+                "I am trying to find carriers and build relationships with carriers.",
+            ),
+            "freshcarrier",
+        ),
+        (
+            _post(
+                "missedquote",
+                "smallbusiness",
+                "How do I build a quote page?",
+                "I have three levels of service and use Jobber for my service business.",
+            ),
+            "quotetier",
+        ),
+        (
+            _post(
+                "missedrecovery",
+                "Construction",
+                "My trade business lost momentum",
+                "I have a small team and keep following up leads and contacting past clients.",
+            ),
+            "revenue-recovery",
+        ),
+        (
+            _post(
+                "bcdd1",
+                "TheBCCS",
+                "BCLDB direct delivery fees are too high",
+                "Licensed retailers still reconcile supplier credits in a spreadsheet.",
+            ),
+            "bc-direct-delivery",
+        ),
+    ],
+)
+def test_real_language_from_missed_posts_routes_for_review(post, expected_project):
+    matches = portfolio.route_post(post, portfolio.load_config())
+    match = next(item for item in matches if item["project_id"] == expected_project)
+    assert match["qualification_tier"] in {"high_intent", "review"}
+    assert match["score"] >= match["review_threshold"]
 
 
 def test_profile_only_notification_suppresses_offer_link():

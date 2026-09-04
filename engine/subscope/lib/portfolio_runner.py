@@ -73,6 +73,8 @@ def scan(
     skipped_lower = {name.casefold() for name in skipped}
     fetched = 0
     routed = 0
+    high_intent = 0
+    review_matches = 0
     new_matches: list[dict[str, Any]] = []
     notification_outcomes: list[dict[str, Any]] = []
 
@@ -103,6 +105,10 @@ def scan(
                     stored_post = {**post, "author": "[not retained]"}
                     store.insert_post(conn, stored_post)
                 for match in matches:
+                    if match["qualification_tier"] == "high_intent":
+                        high_intent += 1
+                    else:
+                        review_matches += 1
                     is_new = True
                     if not dry_run:
                         is_new = store.record_portfolio_match(
@@ -138,7 +144,9 @@ def scan(
         "subreddits_configured": len(sub_specs),
         "subreddits_skipped": skipped,
         "posts_fetched": fetched,
-        "routes_qualified": routed,
+        "routes_found": routed,
+        "routes_qualified": high_intent,
+        "routes_for_review": review_matches,
         "new_matches": new_matches,
         "new_match_count": len(new_matches),
         "notifications": notification_outcomes,
@@ -178,6 +186,8 @@ def search(
     reddit.set_request_budget(request_budget)
     fetched = 0
     routed = 0
+    high_intent = 0
+    review_matches = 0
     skipped_projects: list[str] = []
     project_results: list[dict[str, Any]] = []
     new_matches: list[dict[str, Any]] = []
@@ -210,7 +220,9 @@ def search(
                         "status": "unreachable",
                         "posts_fetched": 0,
                         "posts_in_window": 0,
-                        "routes_qualified": 0,
+                        "routes_found": 0,
+                        "high_intent": 0,
+                        "review": 0,
                         "new_matches": 0,
                     }
                 )
@@ -219,6 +231,8 @@ def search(
             fetched += len(posts)
             recent_posts = [post for post in posts if int(post.get("created_utc") or 0) >= cutoff]
             project_match_count = 0
+            project_high_count = 0
+            project_review_count = 0
             project_new_count = 0
             for post in recent_posts:
                 match = portfolio.match_project(post, project, config.get("defaults", {}))
@@ -226,6 +240,12 @@ def search(
                     continue
                 routed += 1
                 project_match_count += 1
+                if match["qualification_tier"] == "high_intent":
+                    high_intent += 1
+                    project_high_count += 1
+                else:
+                    review_matches += 1
+                    project_review_count += 1
                 if not dry_run:
                     stored_post = {**post, "author": "[not retained]"}
                     store.insert_post(conn, stored_post)
@@ -258,7 +278,9 @@ def search(
                     "status": "ok",
                     "posts_fetched": len(posts),
                     "posts_in_window": len(recent_posts),
-                    "routes_qualified": project_match_count,
+                    "routes_found": project_match_count,
+                    "high_intent": project_high_count,
+                    "review": project_review_count,
                     "new_matches": project_new_count,
                 }
             )
@@ -279,7 +301,9 @@ def search(
         "projects_skipped": skipped_projects,
         "project_results": project_results,
         "posts_fetched": fetched,
-        "routes_qualified": routed,
+        "routes_found": routed,
+        "routes_qualified": high_intent,
+        "routes_for_review": review_matches,
         "new_matches": new_matches,
         "new_match_count": len(new_matches),
         "notifications": notification_outcomes,

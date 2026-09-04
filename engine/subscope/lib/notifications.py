@@ -76,8 +76,10 @@ def channel_status(config: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _message(match: dict[str, Any]) -> str:
     offer = match.get("offer") or {}
+    tier = str(match.get("qualification_tier") or "high_intent").replace("_", " ").upper()
+    project_name = match.get("project_name", match.get("project_id", "Project"))
     lines = [
-        f"Reddit opportunity: {match.get('project_name', match.get('project_id', 'Project'))}",
+        f"Reddit opportunity [{tier}]: {project_name}",
         f"Score {match.get('score', '?')} | r/{match.get('subreddit', '?')}",
         str(match.get("title") or "")[:180],
         str(match.get("url") or ""),

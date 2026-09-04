@@ -65,6 +65,9 @@ Use `--dry-run --no-notify` while tuning. Dry runs do not update cursors or SQLi
 
 For high-intent discovery across the last seven days, use the focused search mode. This is the
 mode used by the background watcher because busy community feeds can crowd out relevant posts.
+Searches include the target subreddit names in the Reddit query so unrelated communities cannot
+consume the 100-result feed. Matches are labelled `high_intent` or `review`; the review tier keeps
+useful near-matches visible without pretending they cleared the strict conversion threshold.
 
 ```bash
 .venv/bin/subscope portfolio search --days 7

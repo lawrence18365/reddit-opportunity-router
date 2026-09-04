@@ -11,6 +11,7 @@ scanner:
 # generic word such as "quote" or "schedule" from becoming an alert by itself.
 defaults:
   min_score: 50
+  review_min_score: 42
   min_signal_groups: 2
   group_points:
     pain: 15
@@ -31,6 +32,7 @@ projects:
     priority: 1
     enabled: true
     min_score: 50
+    review_min_score: 44
     offer:
       cta_type: free_trial
       cta_label: See 10 fresh carrier leads free
@@ -38,7 +40,12 @@ projects:
     search_terms:
       - stale leads
       - carrier leads
-      - new authority
+      - freight broker leads
+      - trucking leads
+      - find carriers
+      - carrier database
+      - prospecting carriers
+      - new authorities
       - DOTNow
       - FMCSA database
     disclosure: If you mention FreshCarrier, say plainly that you built it.
@@ -74,6 +81,11 @@ projects:
       - alternative to
       - worth it
       - what do you use
+      - trying to find carriers
+      - find carriers
+      - how do I find carriers
+      - prospecting carriers
+      - build relationships with carriers
     competitor_signals:
       - DOTNow
       - Carrier411
@@ -93,12 +105,16 @@ projects:
       - trucking insurance
       - factoring sales
       - ELD sales
+      - carrier sales
+      - carrier database
+      - book of carriers
     audience_signals:
       - insurance agent
       - freight broker
       - factoring company
       - fuel card
       - trucking sales
+      - carrier sales rep
     exclusion_signals:
       - looking for a truck driver job
       - CDL school
@@ -109,6 +125,7 @@ projects:
     priority: 2
     enabled: true
     min_score: 50
+    review_min_score: 44
     offer:
       cta_type: free_trial
       cta_label: Build a Good, Better, Best quote free
@@ -116,10 +133,16 @@ projects:
     search_terms:
       - quote software
       - proposal software
+      - good better best
+      - three levels of service
+      - clients ghost
       - PandaDoc
       - Proposify
-      - good better best
-      - clients ghost
+      - Jobber
+      - estimate software
+      - quoting software
+      - quote app
+      - quoting tool
     disclosure: If you mention QuoteTier, say plainly that you built it.
     subreddits:
       - {name: smallbusiness, weight: 1.3, saturation: high, cta_policy: profile_only}
@@ -165,6 +188,10 @@ projects:
       - alternative to
       - what do you use
       - any recommendations
+      - three levels of service
+      - one price
+      - no tiers
+      - simplify my stack
     competitor_signals:
       - PandaDoc
       - Proposify
@@ -183,6 +210,9 @@ projects:
       - service packages
       - pricing options
       - scope of work
+      - service level
+      - pricing
+      - invoices/quotes
     audience_signals:
       - photographer
       - videographer
@@ -192,23 +222,32 @@ projects:
       - landscaper
       - electrician
       - plumber
+      - service business
     exclusion_signals:
       - stock quote
       - movie quote
       - insurance quote comparison
+      - I'm testing the first piece
+      - I built a quote
+      - looking for feedback on my app
 
   - id: restaurant-roster
     name: Restaurant Roster
     priority: 3
     enabled: true
     min_score: 50
+    review_min_score: 44
     offer:
       cta_type: free_trial
       cta_label: Build next week's rota free for 14 days
       url: https://restaurantroster.com/signup
     search_terms:
       - staff scheduling
+      - employee scheduling
       - scheduling software
+      - restaurant schedule
+      - schedule app
+      - shift scheduling
       - 7shifts
       - Homebase
       - shift conflicts
@@ -236,6 +275,9 @@ projects:
       - overstaffed
       - scheduling spreadsheet
       - rota spreadsheet
+      - scheduling employees
+      - marker board
+      - group text
     intent_signals:
       - scheduling software
       - rota software
@@ -246,6 +288,9 @@ projects:
       - need a better way
       - automate scheduling
       - forecast staffing
+      - employee scheduling
+      - schedule app
+      - shift scheduling
     competitor_signals:
       - 7shifts
       - Homebase
@@ -266,6 +311,8 @@ projects:
       - line cook
       - servers
       - covers forecast
+      - venue
+      - hospitality
     audience_signals:
       - restaurant owner
       - general manager
@@ -276,20 +323,30 @@ projects:
       - school schedule
       - class schedule
       - workout schedule
+      - I built an operations app
+      - building a Workforce Management OS
+      - launching a rostering app
+      - looking for feedback on my app
 
   - id: revenue-recovery
     name: Revenue Recovery
     priority: 4
     enabled: true
     min_score: 54
+    review_min_score: 46
     offer:
       cta_type: free_audit
       cta_label: Get a free quote leakage audit
       url: https://revenuerecovery.co.uk/quote-leakage-audit
     search_terms:
       - quote follow up
+      - lead follow up
+      - following up leads
+      - leads go cold
       - old quotes
       - dormant quotes
+      - lost quotes
+      - contacting past clients
       - customers ghost
       - Jobber
     disclosure: If you mention Revenue Recovery, disclose plainly that you run the service.
@@ -316,6 +373,10 @@ projects:
       - missed callbacks
       - lost leads
       - dead leads
+      - following up leads
+      - contacting past clients
+      - leads go cold
+      - lost momentum
     intent_signals:
       - quote follow up
       - estimate follow up
@@ -327,6 +388,10 @@ projects:
       - any recommendations
       - what do you use
       - need help with
+      - follow up leads
+      - contact past clients
+      - rebuild pipeline
+      - need a system
     competitor_signals:
       - Buildertrend
       - Jobber
@@ -347,15 +412,107 @@ projects:
       - installer
       - sales quotes
       - estimates
+      - trade business
+      - service business
+      - plumbing company
+      - HVAC company
+      - cleaning business
     audience_signals:
       - business owner
       - sales manager
       - managing director
       - installer
       - contractor
+      - small team
     exclusion_signals:
       - coding interview
       - software installer error
+      - not interested in paying anyone
+      - people are mostly just pitching
+      - we have no money right now
+
+  - id: bc-direct-delivery
+    name: BC Direct Delivery
+    priority: 5
+    enabled: true
+    min_score: 50
+    review_min_score: 44
+    offer:
+      cta_type: paid_audit
+      cta_label: Request the $500 wholesale workflow audit
+      url: https://bcdirectdelivery.ca/pilot
+    search_terms:
+      - BCLDB
+      - BC cannabis wholesale
+      - direct delivery program
+      - cannabis retailer inventory
+      - supplier orders
+      - receiving discrepancies
+      - supplier credits
+      - sell through
+    disclosure: If you mention BC Direct Delivery, say plainly that you built it.
+    subreddits:
+      - {name: TheBCCS, weight: 1.7, saturation: low}
+      - {name: CanadianCannabisLPs, weight: 1.4, saturation: low}
+      - {name: weedstocks, weight: 0.9, saturation: high}
+      - {name: CanadianCannabis, weight: 1.0, saturation: medium}
+      - {name: CannabisRetailers, weight: 1.5, saturation: low}
+      - {name: DispensaryMarketing, weight: 1.0, saturation: low}
+    pain_signals:
+      - fees too high
+      - duplicate work
+      - rekeying
+      - spreadsheet
+      - receiving discrepancy
+      - receiving discrepancies
+      - shortage
+      - shortages
+      - missing credit
+      - unresolved credit
+      - invoice mismatch
+      - month end
+      - manual reconciliation
+      - out of stock
+    intent_signals:
+      - looking for
+      - what do you use
+      - how do you manage
+      - need a better way
+      - any recommendations
+      - direct delivery
+      - manage orders
+      - track credits
+    competitor_signals:
+      - BCLDB
+      - Dutchie
+      - Cova
+      - Greenline
+      - TechPOS
+    context_signals:
+      - direct delivery
+      - B.C.
+      - BC wholesale
+      - cannabis retailer
+      - licensed retailer
+      - licensed producer
+      - craft cannabis
+      - micro producer
+      - micro-cultivator
+      - dispensary
+      - purchase order
+    audience_signals:
+      - store owner
+      - retailer
+      - buyer
+      - category manager
+      - producer
+      - supplier
+    exclusion_signals:
+      - home grow
+      - strain review
+      - stock price
+      - investor
+      - looking for a dispensary
 
   # Expansion profiles are ready to tune, but remain off until one of the first
   # four products produces repeatable trial or audit conversions.

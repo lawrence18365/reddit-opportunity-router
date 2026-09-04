@@ -73,13 +73,19 @@ def validate_config(config: dict[str, Any]) -> None:
         if not isinstance(project.get("subreddits"), list) or not project["subreddits"]:
             errors.append(f"{project_id}: at least one subreddit is required")
         threshold = project.get("min_score", config.get("defaults", {}).get("min_score", 50))
+        review_threshold = project.get(
+            "review_min_score", config.get("defaults", {}).get("review_min_score", threshold)
+        )
         try:
             threshold_num = float(threshold)
+            review_threshold_num = float(review_threshold)
         except (TypeError, ValueError):
-            errors.append(f"{project_id}: min_score must be numeric")
+            errors.append(f"{project_id}: score thresholds must be numeric")
         else:
             if not 0 <= threshold_num <= 100:
                 errors.append(f"{project_id}: min_score must be between 0 and 100")
+            if not 0 <= review_threshold_num <= threshold_num:
+                errors.append(f"{project_id}: review_min_score must be between 0 and min_score")
     if errors:
         raise ValueError("invalid portfolio config:\n- " + "\n- ".join(errors))
 
@@ -118,7 +124,7 @@ def subreddit_specs(config: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _normalize(value: str) -> str:
-    value = value.casefold().replace("&", " and ")
+    value = value.casefold().replace("&", " and ").replace("’", "'").replace("‘", "'")
     value = re.sub(r"[^a-z0-9+#./'-]+", " ", value)
     return re.sub(r"\s+", " ", value).strip()
 
@@ -171,12 +177,23 @@ def _tracked_url(url: str, project_id: str, post_id: str) -> str:
 
 
 def build_search_query(project: dict[str, Any], max_length: int = 512) -> str:
-    """Build a bounded Reddit search query from a project's strongest terms."""
+    """Build a bounded query that searches only the project's target communities."""
     raw_terms = project.get("search_terms") or (
         list(project.get("competitor_signals", []))[:4]
         + list(project.get("intent_signals", []))[:4]
         + list(project.get("pain_signals", []))[:4]
     )
+    subreddit_tokens: list[str] = []
+    for raw in project.get("subreddits", []):
+        item = {"name": raw} if isinstance(raw, str) else raw
+        name = str(item.get("name") or "").strip().removeprefix("r/")
+        token = f"subreddit:{name}"
+        candidate = " OR ".join([*subreddit_tokens, token])
+        if len(candidate) > max(80, max_length - 160):
+            break
+        subreddit_tokens.append(token)
+    subreddit_clause = " OR ".join(subreddit_tokens)
+
     terms: list[str] = []
     seen: set[str] = set()
     for raw in raw_terms:
@@ -185,11 +202,17 @@ def build_search_query(project: dict[str, Any], max_length: int = 512) -> str:
             continue
         seen.add(term.casefold())
         quoted = f'"{term}"' if " " in term else term
-        candidate = " OR ".join([*terms, quoted])
+        term_candidate = " OR ".join([*terms, quoted])
+        candidate = (
+            f"({term_candidate}) AND ({subreddit_clause})" if subreddit_clause else term_candidate
+        )
         if len(candidate) > max_length:
             break
         terms.append(quoted)
-    return " OR ".join(terms)
+    term_clause = " OR ".join(terms)
+    if term_clause and subreddit_clause:
+        return f"({term_clause}) AND ({subreddit_clause})"
+    return term_clause
 
 
 def match_project(
@@ -249,8 +272,12 @@ def match_project(
     points += _freshness_points(int(post.get("created_utc") or 0))
     score = round(min(100.0, points), 1)
     threshold = float(project.get("min_score", defaults.get("min_score", 50)))
-    if score < threshold:
+    review_threshold = float(
+        project.get("review_min_score", defaults.get("review_min_score", threshold))
+    )
+    if score < review_threshold:
         return None
+    qualification_tier = "high_intent" if score >= threshold else "review"
 
     reason_parts = [f"{name}: {', '.join(values[:3])}" for name, values in groups.items() if values]
     offer = project.get("offer") or {}
@@ -273,6 +300,8 @@ def match_project(
         "priority": int(project.get("priority", 999)),
         "score": score,
         "threshold": threshold,
+        "review_threshold": review_threshold,
+        "qualification_tier": qualification_tier,
         "subreddit": post.get("subreddit", ""),
         "title": post.get("title", ""),
         "body_excerpt": str(post.get("body") or "")[:400],
