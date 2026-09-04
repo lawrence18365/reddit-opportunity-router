@@ -10,4 +10,4 @@ if [[ -f "${notification_env}" ]]; then
   set +a
 fi
 
-exec "${repo_root}/.venv/bin/subscope" portfolio scan
+exec "${repo_root}/.venv/bin/subscope" portfolio search --days 7

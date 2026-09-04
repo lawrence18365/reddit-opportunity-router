@@ -170,6 +170,28 @@ def _tracked_url(url: str, project_id: str, post_id: str) -> str:
     )
 
 
+def build_search_query(project: dict[str, Any], max_length: int = 512) -> str:
+    """Build a bounded Reddit search query from a project's strongest terms."""
+    raw_terms = project.get("search_terms") or (
+        list(project.get("competitor_signals", []))[:4]
+        + list(project.get("intent_signals", []))[:4]
+        + list(project.get("pain_signals", []))[:4]
+    )
+    terms: list[str] = []
+    seen: set[str] = set()
+    for raw in raw_terms:
+        term = str(raw).strip()
+        if not term or term.casefold() in seen:
+            continue
+        seen.add(term.casefold())
+        quoted = f'"{term}"' if " " in term else term
+        candidate = " OR ".join([*terms, quoted])
+        if len(candidate) > max_length:
+            break
+        terms.append(quoted)
+    return " OR ".join(terms)
+
+
 def match_project(
     post: dict[str, Any],
     project: dict[str, Any],
@@ -233,6 +255,17 @@ def match_project(
     reason_parts = [f"{name}: {', '.join(values[:3])}" for name, values in groups.items() if values]
     offer = project.get("offer") or {}
     offer_url = str(offer.get("url") or "")
+    cta_policy = str(sub.get("cta_policy") or "disclosed_if_helpful")
+    if cta_policy == "profile_only":
+        engagement_guidance = (
+            "Give a useful answer without naming or linking the product. "
+            "Keep your affiliation visible in your Reddit profile."
+        )
+    else:
+        engagement_guidance = (
+            "Help first. Mention or link the product only when directly relevant, "
+            "and disclose your affiliation."
+        )
     return {
         "post_id": str(post.get("id") or ""),
         "project_id": project["id"],
@@ -252,6 +285,10 @@ def match_project(
             "cta_label": offer.get("cta_label", "Try it free"),
             "url": offer_url,
             "tracked_url": _tracked_url(offer_url, str(project["id"]), str(post.get("id") or "")),
+        },
+        "engagement": {
+            "cta_policy": cta_policy,
+            "guidance": engagement_guidance,
         },
         "disclosure": project.get(
             "disclosure",

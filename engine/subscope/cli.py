@@ -1166,6 +1166,27 @@ def cmd_portfolio_scan(
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+def cmd_portfolio_search(
+    config_path: str | None,
+    notifications_path: str | None,
+    days: int,
+    limit_per_project: int,
+    max_requests: int | None,
+    no_notify: bool,
+    dry_run: bool,
+) -> None:
+    result = portfolio_runner.search(
+        portfolio_config_path=config_path,
+        notification_config_path=notifications_path,
+        days=days,
+        limit_per_project=limit_per_project,
+        max_requests=max_requests,
+        notify=not no_notify,
+        dry_run=dry_run,
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 def cmd_portfolio_status(
     config_path: str | None, notifications_path: str | None, recent_limit: int,
 ) -> None:
@@ -1312,6 +1333,20 @@ def main(argv: list[str] | None = None) -> None:
         help="Fetch and route without changing cursors, database state, or sending alerts",
     )
 
+    psearch = portfolio_cmd.add_parser(
+        "search", help="Search high-intent terms, persist qualified matches, and alert"
+    )
+    psearch.add_argument("--config", type=str, default=None)
+    psearch.add_argument("--notifications", type=str, default=None)
+    psearch.add_argument("--days", type=int, default=7)
+    psearch.add_argument("--limit-per-project", type=int, default=100)
+    psearch.add_argument("--max-requests", type=int, default=None)
+    psearch.add_argument("--no-notify", action="store_true")
+    psearch.add_argument(
+        "--dry-run", action="store_true",
+        help="Fetch and route without changing database state or sending alerts",
+    )
+
     pst = portfolio_cmd.add_parser("status", help="Show projects, channels, and recent matches")
     pst.add_argument("--config", type=str, default=None)
     pst.add_argument("--notifications", type=str, default=None)
@@ -1370,6 +1405,16 @@ def main(argv: list[str] | None = None) -> None:
             args.config,
             args.notifications,
             args.limit_per_sub,
+            args.max_requests,
+            args.no_notify,
+            args.dry_run,
+        )
+    elif args.cmd == "portfolio" and args.portfolio_cmd == "search":
+        cmd_portfolio_search(
+            args.config,
+            args.notifications,
+            args.days,
+            args.limit_per_project,
             args.max_requests,
             args.no_notify,
             args.dry_run,

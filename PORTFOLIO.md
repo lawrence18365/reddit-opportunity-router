@@ -63,6 +63,17 @@ a tracked URL with product, campaign, and Reddit post attribution.
 
 Use `--dry-run --no-notify` while tuning. Dry runs do not update cursors or SQLite state.
 
+For high-intent discovery across the last seven days, use the focused search mode. This is the
+mode used by the background watcher because busy community feeds can crowd out relevant posts.
+
+```bash
+.venv/bin/subscope portfolio search --days 7
+```
+
+Each subreddit can set `cta_policy: profile_only`. Matches from those communities suppress the
+product link and tell the operator to provide a useful answer while keeping affiliation details
+in the Reddit profile.
+
 ## Run continuously on macOS
 
 The included LaunchAgent scans every 15 minutes. Reddit's current

@@ -150,6 +150,147 @@ def scan(
     }
 
 
+def search(
+    *,
+    portfolio_config_path: Path | str | None = None,
+    notification_config_path: Path | str | None = None,
+    days: int = 7,
+    limit_per_project: int = 100,
+    max_requests: int | None = None,
+    notify: bool = True,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Search globally per project, filter to target communities, persist, and alert."""
+    config = portfolio.load_config(portfolio_config_path)
+    notification_config = notifications.load_config(notification_config_path)
+    scan_config = config.get("scanner", {}) or {}
+    projects = portfolio.active_projects(config)
+    lookback_days = max(1, int(days))
+    limit = max(1, min(100, int(limit_per_project)))
+    configured_budget = int(scan_config.get("request_budget", 8))
+    request_budget = (
+        max(len(projects), configured_budget) if max_requests is None else max(0, int(max_requests))
+    )
+    retention_days = max(1, int(scan_config.get("retention_days", 30)))
+    cutoff = int(time.time()) - lookback_days * 86400
+
+    reddit.reset_fetch_stats()
+    reddit.set_request_budget(request_budget)
+    fetched = 0
+    routed = 0
+    skipped_projects: list[str] = []
+    project_results: list[dict[str, Any]] = []
+    new_matches: list[dict[str, Any]] = []
+    notification_outcomes: list[dict[str, Any]] = []
+
+    with store.connect() as conn:
+        pruned = (
+            {"matches": 0, "notifications": 0, "posts": 0}
+            if dry_run
+            else store.prune_portfolio_data(conn, days=retention_days)
+        )
+        for project_index, project in enumerate(projects):
+            if reddit.budget_exhausted() or reddit.is_rate_limited():
+                skipped_projects.extend(item["id"] for item in projects[project_index:])
+                break
+
+            query = portfolio.build_search_query(project)
+            posts = reddit.fetch_search(
+                None,
+                query,
+                sort="new",
+                limit=limit,
+                restrict_sr=False,
+            )
+            if posts is None:
+                project_results.append(
+                    {
+                        "project_id": project["id"],
+                        "query": query,
+                        "status": "unreachable",
+                        "posts_fetched": 0,
+                        "posts_in_window": 0,
+                        "routes_qualified": 0,
+                        "new_matches": 0,
+                    }
+                )
+                continue
+
+            fetched += len(posts)
+            recent_posts = [post for post in posts if int(post.get("created_utc") or 0) >= cutoff]
+            project_match_count = 0
+            project_new_count = 0
+            for post in recent_posts:
+                match = portfolio.match_project(post, project, config.get("defaults", {}))
+                if match is None:
+                    continue
+                routed += 1
+                project_match_count += 1
+                if not dry_run:
+                    stored_post = {**post, "author": "[not retained]"}
+                    store.insert_post(conn, stored_post)
+                is_new = True
+                if not dry_run:
+                    is_new = store.record_portfolio_match(
+                        conn, match, json.dumps(match, ensure_ascii=False, sort_keys=True)
+                    )
+                match["is_new"] = is_new
+                if is_new:
+                    project_new_count += 1
+                    new_matches.append(match)
+                if notify and not dry_run:
+                    results = _dispatch_notifications(conn, match, notification_config)
+                    notification_outcomes.extend(
+                        [
+                            {
+                                "post_id": match["post_id"],
+                                "project_id": match["project_id"],
+                                **result,
+                            }
+                            for result in results
+                        ]
+                    )
+
+            project_results.append(
+                {
+                    "project_id": project["id"],
+                    "query": query,
+                    "status": "ok",
+                    "posts_fetched": len(posts),
+                    "posts_in_window": len(recent_posts),
+                    "routes_qualified": project_match_count,
+                    "new_matches": project_new_count,
+                }
+            )
+
+    stats = reddit.get_fetch_stats()
+    if stats.get("rate_limited", 0) or skipped_projects:
+        result_status = "partial"
+    elif stats.get("ok", 0) == 0 and stats.get("failed", 0):
+        result_status = "blocked"
+    else:
+        result_status = "ok"
+    return {
+        "status": result_status,
+        "mode": "focused_search",
+        "dry_run": dry_run,
+        "lookback_days": lookback_days,
+        "projects_active": [project["id"] for project in projects],
+        "projects_skipped": skipped_projects,
+        "project_results": project_results,
+        "posts_fetched": fetched,
+        "routes_qualified": routed,
+        "new_matches": new_matches,
+        "new_match_count": len(new_matches),
+        "notifications": notification_outcomes,
+        "notification_channels": notifications.channel_status(notification_config),
+        "retention_days": retention_days,
+        "pruned": pruned,
+        "reddit_requests": reddit.requests_used(),
+        "fetch_stats": stats,
+    }
+
+
 def route_input(
     payload: Any,
     *,
@@ -217,12 +358,12 @@ def watch(
     notification_config_path: Path | str | None = None,
     interval_seconds: int | None = None,
 ) -> None:
-    """Continuously scan, pushing each qualifying match as soon as it is found."""
+    """Continuously search, pushing each qualifying match as soon as it is found."""
     config = portfolio.load_config(portfolio_config_path)
     configured = int(config.get("scanner", {}).get("interval_seconds", 900))
     interval = max(300, int(interval_seconds or configured))
     while True:
-        result = scan(
+        result = search(
             portfolio_config_path=portfolio_config_path,
             notification_config_path=notification_config_path,
         )

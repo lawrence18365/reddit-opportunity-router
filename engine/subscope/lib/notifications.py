@@ -83,8 +83,12 @@ def _message(match: dict[str, Any]) -> str:
         str(match.get("url") or ""),
         f"Why: {match.get('reason', '')}"[:500],
     ]
+    engagement = match.get("engagement") or {}
+    cta_policy = engagement.get("cta_policy", "disclosed_if_helpful")
     offer_url = offer.get("tracked_url") or offer.get("url")
-    if offer_url:
+    if cta_policy == "profile_only":
+        lines.append("CTA policy: helpful reply only, no product name or link in the comment.")
+    elif offer_url:
         lines.append(f"CTA after helping: {offer.get('cta_label', 'Learn more')} | {offer_url}")
     lines.append("Manual reply only. Disclose your affiliation if you mention the product.")
     return "\n".join(lines)

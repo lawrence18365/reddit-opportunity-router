@@ -35,6 +35,12 @@ projects:
       cta_type: free_trial
       cta_label: See 10 fresh carrier leads free
       url: https://freshcarrier.netlify.app/sign-up
+    search_terms:
+      - stale leads
+      - carrier leads
+      - new authority
+      - DOTNow
+      - FMCSA database
     disclosure: If you mention FreshCarrier, say plainly that you built it.
     subreddits:
       - {name: FreightBrokers, weight: 1.5, saturation: medium}
@@ -107,10 +113,17 @@ projects:
       cta_type: free_trial
       cta_label: Build a Good, Better, Best quote free
       url: https://www.quotetier.com/signup
+    search_terms:
+      - quote software
+      - proposal software
+      - PandaDoc
+      - Proposify
+      - good better best
+      - clients ghost
     disclosure: If you mention QuoteTier, say plainly that you built it.
     subreddits:
-      - {name: smallbusiness, weight: 1.3, saturation: high}
-      - {name: Entrepreneur, weight: 0.9, saturation: high}
+      - {name: smallbusiness, weight: 1.3, saturation: high, cta_policy: profile_only}
+      - {name: Entrepreneur, weight: 0.9, saturation: high, cta_policy: profile_only}
       - {name: freelance, weight: 1.1, saturation: medium}
       - {name: freelancers, weight: 1.1, saturation: medium}
       - {name: photography, weight: 1.0, saturation: high}
@@ -193,6 +206,12 @@ projects:
       cta_type: free_trial
       cta_label: Build next week's rota free for 14 days
       url: https://restaurantroster.com/signup
+    search_terms:
+      - staff scheduling
+      - scheduling software
+      - 7shifts
+      - Homebase
+      - shift conflicts
     disclosure: If you mention Restaurant Roster, say plainly that you built it.
     subreddits:
       - {name: Restaurant_Managers, weight: 1.6, saturation: low}
@@ -200,7 +219,7 @@ projects:
       - {name: KitchenConfidential, weight: 0.9, saturation: high}
       - {name: restaurants, weight: 1.2, saturation: medium}
       - {name: Chefit, weight: 0.8, saturation: high}
-      - {name: smallbusiness, weight: 0.8, saturation: high}
+      - {name: smallbusiness, weight: 0.8, saturation: high, cta_policy: profile_only}
     pain_signals:
       - scheduling is a nightmare
       - schedule is a nightmare
@@ -267,11 +286,17 @@ projects:
       cta_type: free_audit
       cta_label: Get a free quote leakage audit
       url: https://revenuerecovery.co.uk/quote-leakage-audit
+    search_terms:
+      - quote follow up
+      - old quotes
+      - dormant quotes
+      - customers ghost
+      - Jobber
     disclosure: If you mention Revenue Recovery, disclose plainly that you run the service.
     subreddits:
       - {name: smallbusinessuk, weight: 1.5, saturation: low}
       - {name: UKSmallBusiness, weight: 1.5, saturation: low}
-      - {name: smallbusiness, weight: 0.9, saturation: high}
+      - {name: smallbusiness, weight: 0.9, saturation: high, cta_policy: profile_only}
       - {name: Construction, weight: 1.1, saturation: high}
       - {name: roofing, weight: 1.2, saturation: medium}
       - {name: HomeImprovement, weight: 0.8, saturation: high}

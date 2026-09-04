@@ -102,6 +102,31 @@ def test_generic_single_signal_does_not_alert():
     assert portfolio.route_post(post, portfolio.load_config()) == []
 
 
+def test_search_query_uses_configured_high_intent_terms():
+    config = portfolio.load_config()
+    project = next(item for item in config["projects"] if item["id"] == "restaurant-roster")
+    query = portfolio.build_search_query(project)
+    assert '"staff scheduling"' in query
+    assert '"scheduling software"' in query
+    assert "7shifts" in query
+    assert len(query) <= 512
+
+
+def test_profile_only_notification_suppresses_offer_link():
+    post = _post(
+        "profile1",
+        "smallbusiness",
+        "What is the best restaurant scheduling software?",
+        "Restaurant owner looking for staff scheduling recommendations.",
+    )
+    matches = portfolio.route_post(post, portfolio.load_config())
+    match = next(item for item in matches if item["project_id"] == "restaurant-roster")
+    message = notifications._message(match)
+    assert match["engagement"]["cta_policy"] == "profile_only"
+    assert match["offer"]["tracked_url"] not in message
+    assert "no product name or link" in message
+
+
 def test_disabled_profiles_never_route():
     post = _post(
         "bridal1",
@@ -189,6 +214,40 @@ def test_scan_delivers_once_per_post_project_channel(tmp_path, monkeypatch):
     assert first["new_matches"][0]["project_id"] == "freshcarrier"
     assert second["new_match_count"] == 0
     assert delivered == [("desktop", "freshcarrier")]
+
+
+def test_search_delivers_once_per_post_project_channel(tmp_path, monkeypatch):
+    monkeypatch.setenv("SUBSCOPE_DATA", str(tmp_path / "data"))
+    post = _post(
+        "search1",
+        "smallbusiness",
+        "What is the best restaurant scheduling software?",
+        "Restaurant owner looking for staff scheduling recommendations.",
+    )
+    monkeypatch.setattr(
+        reddit,
+        "fetch_search",
+        lambda sub, query, **kwargs: [post] if "7shifts" in query else [],
+    )
+    monkeypatch.setattr(
+        reddit,
+        "get_fetch_stats",
+        lambda: {"ok": 4, "failed": 0, "rate_limited": 0, "fallback_used": 0},
+    )
+    delivered: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        notifications,
+        "send",
+        lambda channel, match: delivered.append((channel["id"], match["project_id"])),
+    )
+
+    first = portfolio_runner.search()
+    second = portfolio_runner.search()
+
+    assert first["new_match_count"] == 1
+    assert first["new_matches"][0]["project_id"] == "restaurant-roster"
+    assert second["new_match_count"] == 0
+    assert delivered == [("desktop", "restaurant-roster")]
 
 
 def test_notification_channel_configuration_uses_environment(monkeypatch):
