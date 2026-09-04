@@ -1,0 +1,30 @@
+version: 1
+
+# Desktop alerts work immediately on macOS and Linux. Remote channels activate
+# only when their named environment variables are present. Secrets never belong
+# in this file or in git.
+channels:
+  - id: desktop
+    type: desktop
+    enabled: true
+
+  - id: slack
+    type: slack
+    enabled: true
+    url_env: OPPORTUNITY_SLACK_WEBHOOK_URL
+
+  - id: discord
+    type: discord
+    enabled: true
+    url_env: OPPORTUNITY_DISCORD_WEBHOOK_URL
+
+  - id: telegram
+    type: telegram
+    enabled: true
+    token_env: OPPORTUNITY_TELEGRAM_BOT_TOKEN
+    chat_id_env: OPPORTUNITY_TELEGRAM_CHAT_ID
+
+  - id: webhook
+    type: webhook
+    enabled: true
+    url_env: OPPORTUNITY_WEBHOOK_URL

@@ -1,3 +1,13 @@
+# Portfolio fork
+
+This branch adds a multi-product Reddit opportunity router for FreshCarrier, QuoteTier,
+Restaurant Roster, and Revenue Recovery, with instant desktop, Slack, Discord, Telegram, or
+generic webhook alerts. Reddit engagement remains fully manual and disclosed.
+
+Start with [PORTFOLIO.md](PORTFOLIO.md). The original Subscope documentation follows.
+
+---
+
 <div align="center">
 
 # subscope
@@ -277,4 +287,4 @@ MIT licensed, see [LICENSE](LICENSE). Issues and PRs welcome. The anti-positioni
 
 ---
 
-> From [NodeSparks](https://www.nodesparks.com) — [custom AI agents & automations](https://www.nodesparks.com/contact-us) for founders who would rather own the tool than rent it. subscope is our open-source buyer-signal scanner.
+> From [NodeSparks](https://www.nodesparks.com): [custom AI agents & automations](https://www.nodesparks.com/contact-us) for founders who would rather own the tool than rent it. subscope is our open-source buyer-signal scanner.

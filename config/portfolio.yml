@@ -1,0 +1,394 @@
+version: 1
+
+scanner:
+  interval_seconds: 900
+  limit_per_sub: 25
+  batch_cost_cap: 10
+  request_budget: 8
+
+# A match must hit signals from at least two distinct groups. This prevents a
+# generic word such as "quote" or "schedule" from becoming an alert by itself.
+defaults:
+  min_score: 50
+  min_signal_groups: 2
+  group_points:
+    pain: 15
+    intent: 15
+    competitor: 25
+    context: 8
+    audience: 6
+  group_caps:
+    pain: 30
+    intent: 30
+    competitor: 35
+    context: 16
+    audience: 12
+
+projects:
+  - id: freshcarrier
+    name: FreshCarrier
+    priority: 1
+    enabled: true
+    min_score: 50
+    offer:
+      cta_type: free_trial
+      cta_label: See 10 fresh carrier leads free
+      url: https://freshcarrier.netlify.app/sign-up
+    disclosure: If you mention FreshCarrier, say plainly that you built it.
+    subreddits:
+      - {name: FreightBrokers, weight: 1.5, saturation: medium}
+      - {name: trucking, weight: 1.3, saturation: high}
+      - {name: Truckers, weight: 1.2, saturation: high}
+      - {name: OwnerOperators, weight: 1.3, saturation: medium}
+      - {name: hotshottrucking, weight: 1.0, saturation: low}
+      - {name: InsurancePros, weight: 1.0, saturation: low}
+      - {name: sales, weight: 0.8, saturation: high}
+    pain_signals:
+      - stale leads
+      - bad leads
+      - recycled leads
+      - old leads
+      - outdated data
+      - disconnected numbers
+      - wrong numbers
+      - sold to everyone
+      - lead quality
+      - overpriced leads
+      - low connect rate
+      - no one answers
+    intent_signals:
+      - looking for leads
+      - need leads
+      - where do you get leads
+      - anyone use
+      - any recommendations
+      - recommend a
+      - better source
+      - alternative to
+      - worth it
+      - what do you use
+    competitor_signals:
+      - DOTNow
+      - Carrier411
+      - DAT
+      - Truckstop
+      - SaferWatch
+      - FMCSA database
+    context_signals:
+      - motor carrier
+      - carrier leads
+      - trucking leads
+      - new authority
+      - newly authorized
+      - DOT leads
+      - MC number
+      - freight broker
+      - trucking insurance
+      - factoring sales
+      - ELD sales
+    audience_signals:
+      - insurance agent
+      - freight broker
+      - factoring company
+      - fuel card
+      - trucking sales
+    exclusion_signals:
+      - looking for a truck driver job
+      - CDL school
+      - driver training
+
+  - id: quotetier
+    name: QuoteTier
+    priority: 2
+    enabled: true
+    min_score: 50
+    offer:
+      cta_type: free_trial
+      cta_label: Build a Good, Better, Best quote free
+      url: https://www.quotetier.com/signup
+    disclosure: If you mention QuoteTier, say plainly that you built it.
+    subreddits:
+      - {name: smallbusiness, weight: 1.3, saturation: high}
+      - {name: Entrepreneur, weight: 0.9, saturation: high}
+      - {name: freelance, weight: 1.1, saturation: medium}
+      - {name: freelancers, weight: 1.1, saturation: medium}
+      - {name: photography, weight: 1.0, saturation: high}
+      - {name: WeddingPhotography, weight: 1.2, saturation: medium}
+      - {name: videography, weight: 1.1, saturation: medium}
+      - {name: web_design, weight: 1.0, saturation: high}
+      - {name: hvacadvice, weight: 0.8, saturation: high}
+      - {name: Construction, weight: 0.9, saturation: high}
+      - {name: landscaping, weight: 1.0, saturation: medium}
+      - {name: pressurewashing, weight: 1.2, saturation: low}
+      - {name: painting, weight: 1.0, saturation: medium}
+      - {name: roofing, weight: 1.0, saturation: medium}
+      - {name: Plumbing, weight: 0.9, saturation: high}
+      - {name: electricians, weight: 0.9, saturation: high}
+    pain_signals:
+      - client ghosted
+      - clients ghost
+      - quote ghosting
+      - proposal ghosting
+      - quote takes forever
+      - quoting takes forever
+      - proposal takes forever
+      - too many revisions
+      - price objections
+      - proposal software is expensive
+      - confusing quote
+      - spreadsheet quotes
+    intent_signals:
+      - quote software
+      - quoting software
+      - estimate software
+      - proposal software
+      - quote template
+      - estimate template
+      - proposal template
+      - good better best
+      - pricing packages
+      - tiered pricing
+      - alternative to
+      - what do you use
+      - any recommendations
+    competitor_signals:
+      - PandaDoc
+      - Proposify
+      - Better Proposals
+      - HoneyBook
+      - Jobber
+      - Housecall Pro
+      - Joist
+      - QuoteWerks
+      - Qwilr
+    context_signals:
+      - quote
+      - estimate
+      - proposal
+      - package pricing
+      - service packages
+      - pricing options
+      - scope of work
+    audience_signals:
+      - photographer
+      - videographer
+      - contractor
+      - freelancer
+      - agency owner
+      - landscaper
+      - electrician
+      - plumber
+    exclusion_signals:
+      - stock quote
+      - movie quote
+      - insurance quote comparison
+
+  - id: restaurant-roster
+    name: Restaurant Roster
+    priority: 3
+    enabled: true
+    min_score: 50
+    offer:
+      cta_type: free_trial
+      cta_label: Build next week's rota free for 14 days
+      url: https://restaurantroster.com/signup
+    disclosure: If you mention Restaurant Roster, say plainly that you built it.
+    subreddits:
+      - {name: Restaurant_Managers, weight: 1.6, saturation: low}
+      - {name: restaurantowners, weight: 1.6, saturation: low}
+      - {name: KitchenConfidential, weight: 0.9, saturation: high}
+      - {name: restaurants, weight: 1.2, saturation: medium}
+      - {name: Chefit, weight: 0.8, saturation: high}
+      - {name: smallbusiness, weight: 0.8, saturation: high}
+    pain_signals:
+      - scheduling is a nightmare
+      - schedule is a nightmare
+      - staff scheduling
+      - shift conflicts
+      - availability conflicts
+      - last minute call out
+      - last-minute call-out
+      - no show
+      - shift swaps
+      - labor cost
+      - labour cost
+      - understaffed
+      - overstaffed
+      - scheduling spreadsheet
+      - rota spreadsheet
+    intent_signals:
+      - scheduling software
+      - rota software
+      - what do you use
+      - any recommendations
+      - alternative to
+      - looking for
+      - need a better way
+      - automate scheduling
+      - forecast staffing
+    competitor_signals:
+      - 7shifts
+      - Homebase
+      - Deputy
+      - When I Work
+      - Sling
+      - Restaurant365
+      - HotSchedules
+      - Schedulefly
+    context_signals:
+      - restaurant
+      - rota
+      - weekly schedule
+      - front of house
+      - back of house
+      - FOH
+      - BOH
+      - line cook
+      - servers
+      - covers forecast
+    audience_signals:
+      - restaurant owner
+      - general manager
+      - restaurant manager
+      - chef owner
+      - operator
+    exclusion_signals:
+      - school schedule
+      - class schedule
+      - workout schedule
+
+  - id: revenue-recovery
+    name: Revenue Recovery
+    priority: 4
+    enabled: true
+    min_score: 54
+    offer:
+      cta_type: free_audit
+      cta_label: Get a free quote leakage audit
+      url: https://revenuerecovery.co.uk/quote-leakage-audit
+    disclosure: If you mention Revenue Recovery, disclose plainly that you run the service.
+    subreddits:
+      - {name: smallbusinessuk, weight: 1.5, saturation: low}
+      - {name: UKSmallBusiness, weight: 1.5, saturation: low}
+      - {name: smallbusiness, weight: 0.9, saturation: high}
+      - {name: Construction, weight: 1.1, saturation: high}
+      - {name: roofing, weight: 1.2, saturation: medium}
+      - {name: HomeImprovement, weight: 0.8, saturation: high}
+      - {name: sales, weight: 0.8, saturation: high}
+    pain_signals:
+      - quotes go cold
+      - quote went cold
+      - old quotes
+      - dormant quotes
+      - lost quotes
+      - ghosted estimate
+      - customers ghost
+      - enquiries go cold
+      - inquiries go cold
+      - poor follow up
+      - no quote follow up
+      - missed callbacks
+      - lost leads
+      - dead leads
+    intent_signals:
+      - quote follow up
+      - estimate follow up
+      - follow-up system
+      - how do you follow up
+      - recover old leads
+      - revive old leads
+      - win back customers
+      - any recommendations
+      - what do you use
+      - need help with
+    competitor_signals:
+      - Buildertrend
+      - Jobber
+      - ServiceM8
+      - HubSpot
+      - Salesforce
+      - HighLevel
+      - GoHighLevel
+    context_signals:
+      - window installer
+      - door installer
+      - windows and doors
+      - double glazing
+      - glazing company
+      - conservatory
+      - home improvement company
+      - roofing company
+      - installer
+      - sales quotes
+      - estimates
+    audience_signals:
+      - business owner
+      - sales manager
+      - managing director
+      - installer
+      - contractor
+    exclusion_signals:
+      - coding interview
+      - software installer error
+
+  # Expansion profiles are ready to tune, but remain off until one of the first
+  # four products produces repeatable trial or audit conversions.
+  - id: bridal-os
+    name: Bridal OS
+    priority: 20
+    enabled: false
+    activation_note: Enable after a priority product has repeatable conversions.
+    offer:
+      cta_type: free_trial
+      cta_label: Start a 14-day free trial
+      url: ""
+    subreddits:
+      - {name: weddingplanning, weight: 0.8, saturation: high}
+      - {name: WeddingPhotography, weight: 1.0, saturation: medium}
+      - {name: smallbusiness, weight: 0.7, saturation: high}
+    pain_signals: [bridal shop software, appointment chaos, dress inventory, alterations tracking]
+    intent_signals: [what do you use, any recommendations, alternative to, looking for]
+    competitor_signals: [BridalLive, BBL Systems, Lightspeed]
+    context_signals: [bridal boutique, bridal shop, wedding dress store]
+    audience_signals: [shop owner, boutique owner]
+    exclusion_signals: [planning my wedding, wedding guest]
+
+  - id: ratetap-mexico
+    name: RateTap Mexico
+    priority: 21
+    enabled: false
+    activation_note: Reddit is a secondary channel. Prefer WhatsApp and local operator groups.
+    offer:
+      cta_type: free_trial
+      cta_label: Start a free trial
+      url: ""
+    subreddits:
+      - {name: MexicoCity, weight: 0.8, saturation: high}
+      - {name: mexico, weight: 0.7, saturation: high}
+      - {name: restaurantowners, weight: 1.0, saturation: low}
+    pain_signals: [bad reviews, guest complaints, survey responses, customer feedback]
+    intent_signals: [what do you use, any recommendations, looking for, need a better way]
+    competitor_signals: [Delighted, Typeform, Google Reviews]
+    context_signals: [restaurante, restaurant, sucursal, comensales]
+    audience_signals: [dueño, gerente, owner, manager]
+    exclusion_signals: [restaurant recommendation, where should I eat]
+
+  - id: affordable-email-marketing
+    name: Affordable Email Marketing
+    priority: 22
+    enabled: false
+    activation_note: Enable only after the first product playbook is proven.
+    offer:
+      cta_type: free_trial
+      cta_label: Try it free
+      url: ""
+    subreddits:
+      - {name: smallbusiness, weight: 1.0, saturation: high}
+      - {name: Emailmarketing, weight: 1.3, saturation: medium}
+      - {name: marketing, weight: 0.8, saturation: high}
+    pain_signals: [email platform is expensive, contact limits, price increase, deliverability issues]
+    intent_signals: [alternative to, what do you use, any recommendations, cheaper email marketing]
+    competitor_signals: [Mailchimp, Constant Contact, Klaviyo, ActiveCampaign]
+    context_signals: [email list, newsletter, email campaigns, subscriber list]
+    audience_signals: [small business, ecommerce owner, marketer]
+    exclusion_signals: [cold email spam, buy email list]

@@ -99,6 +99,41 @@ CREATE TABLE IF NOT EXISTS enrichment_cache (
     PRIMARY KEY (provider, endpoint, key_hash)
 );
 CREATE INDEX IF NOT EXISTS idx_enrich_fresh ON enrichment_cache(provider, expires_at);
+
+CREATE TABLE IF NOT EXISTS portfolio_cursors (
+    subreddit         TEXT PRIMARY KEY,
+    last_cursor       TEXT,
+    last_run_at       INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS portfolio_matches (
+    post_id           TEXT NOT NULL,
+    project_id        TEXT NOT NULL,
+    matched_at        INTEGER NOT NULL,
+    match_score       REAL NOT NULL,
+    match_json        TEXT NOT NULL,
+    PRIMARY KEY (post_id, project_id),
+    FOREIGN KEY (post_id) REFERENCES posts(id)
+);
+CREATE INDEX IF NOT EXISTS idx_portfolio_matches_recent
+    ON portfolio_matches(matched_at DESC);
+CREATE INDEX IF NOT EXISTS idx_portfolio_matches_project
+    ON portfolio_matches(project_id, matched_at DESC);
+
+CREATE TABLE IF NOT EXISTS portfolio_notifications (
+    post_id           TEXT NOT NULL,
+    project_id        TEXT NOT NULL,
+    channel           TEXT NOT NULL,
+    attempts          INTEGER NOT NULL DEFAULT 0,
+    last_attempt_at   INTEGER NOT NULL,
+    delivered_at      INTEGER,
+    last_error        TEXT,
+    PRIMARY KEY (post_id, project_id, channel),
+    FOREIGN KEY (post_id, project_id)
+        REFERENCES portfolio_matches(post_id, project_id)
+);
+CREATE INDEX IF NOT EXISTS idx_portfolio_notifications_delivery
+    ON portfolio_notifications(delivered_at, last_attempt_at);
 """
 
 
@@ -235,6 +270,152 @@ def insert_post(conn: sqlite3.Connection, post: dict[str, Any]) -> None:
          int(time.time()), post.get("score_internal", 0.0),
          1 if post.get("removed") else 0),
     )
+
+
+def _ensure_portfolio_tables(conn: sqlite3.Connection) -> None:
+    """Install the additive portfolio schema in both new and existing databases."""
+    statements = (
+        """CREATE TABLE IF NOT EXISTS portfolio_cursors (
+               subreddit TEXT PRIMARY KEY,
+               last_cursor TEXT,
+               last_run_at INTEGER NOT NULL DEFAULT 0
+           )""",
+        """CREATE TABLE IF NOT EXISTS portfolio_matches (
+               post_id TEXT NOT NULL,
+               project_id TEXT NOT NULL,
+               matched_at INTEGER NOT NULL,
+               match_score REAL NOT NULL,
+               match_json TEXT NOT NULL,
+               PRIMARY KEY (post_id, project_id),
+               FOREIGN KEY (post_id) REFERENCES posts(id)
+           )""",
+        """CREATE INDEX IF NOT EXISTS idx_portfolio_matches_recent
+           ON portfolio_matches(matched_at DESC)""",
+        """CREATE INDEX IF NOT EXISTS idx_portfolio_matches_project
+           ON portfolio_matches(project_id, matched_at DESC)""",
+        """CREATE TABLE IF NOT EXISTS portfolio_notifications (
+               post_id TEXT NOT NULL,
+               project_id TEXT NOT NULL,
+               channel TEXT NOT NULL,
+               attempts INTEGER NOT NULL DEFAULT 0,
+               last_attempt_at INTEGER NOT NULL,
+               delivered_at INTEGER,
+               last_error TEXT,
+               PRIMARY KEY (post_id, project_id, channel),
+               FOREIGN KEY (post_id, project_id)
+                   REFERENCES portfolio_matches(post_id, project_id)
+           )""",
+        """CREATE INDEX IF NOT EXISTS idx_portfolio_notifications_delivery
+           ON portfolio_notifications(delivered_at, last_attempt_at)""",
+    )
+    for statement in statements:
+        conn.execute(statement)
+
+
+def portfolio_cursor(conn: sqlite3.Connection, subreddit: str) -> str | None:
+    _ensure_portfolio_tables(conn)
+    row = conn.execute(
+        "SELECT last_cursor FROM portfolio_cursors WHERE lower(subreddit) = lower(?)",
+        (subreddit,),
+    ).fetchone()
+    return str(row["last_cursor"]) if row and row["last_cursor"] else None
+
+
+def update_portfolio_cursor(
+    conn: sqlite3.Connection, subreddit: str, cursor: str | None,
+) -> None:
+    _ensure_portfolio_tables(conn)
+    conn.execute(
+        """INSERT INTO portfolio_cursors(subreddit, last_cursor, last_run_at)
+           VALUES(?, ?, ?)
+           ON CONFLICT(subreddit) DO UPDATE SET
+               last_cursor=excluded.last_cursor,
+               last_run_at=excluded.last_run_at""",
+        (subreddit, cursor, int(time.time())),
+    )
+
+
+def portfolio_match_exists(
+    conn: sqlite3.Connection, post_id: str, project_id: str,
+) -> bool:
+    _ensure_portfolio_tables(conn)
+    row = conn.execute(
+        "SELECT 1 FROM portfolio_matches WHERE post_id = ? AND project_id = ?",
+        (post_id, project_id),
+    ).fetchone()
+    return row is not None
+
+
+def record_portfolio_match(
+    conn: sqlite3.Connection, match: dict[str, Any], match_json: str,
+) -> bool:
+    """Persist one post-to-project match. Return True only for a new match."""
+    _ensure_portfolio_tables(conn)
+    cursor = conn.execute(
+        """INSERT OR IGNORE INTO portfolio_matches
+           (post_id, project_id, matched_at, match_score, match_json)
+           VALUES(?, ?, ?, ?, ?)""",
+        (
+            match["post_id"], match["project_id"], int(time.time()),
+            float(match["score"]), match_json,
+        ),
+    )
+    return cursor.rowcount == 1
+
+
+def notification_delivered(
+    conn: sqlite3.Connection, post_id: str, project_id: str, channel: str,
+) -> bool:
+    _ensure_portfolio_tables(conn)
+    row = conn.execute(
+        """SELECT delivered_at FROM portfolio_notifications
+           WHERE post_id = ? AND project_id = ? AND channel = ?""",
+        (post_id, project_id, channel),
+    ).fetchone()
+    return bool(row and row["delivered_at"])
+
+
+def record_notification_attempt(
+    conn: sqlite3.Connection,
+    post_id: str,
+    project_id: str,
+    channel: str,
+    *,
+    delivered: bool,
+    error: str = "",
+) -> None:
+    _ensure_portfolio_tables(conn)
+    now = int(time.time())
+    conn.execute(
+        """INSERT INTO portfolio_notifications
+           (post_id, project_id, channel, attempts, last_attempt_at, delivered_at, last_error)
+           VALUES(?, ?, ?, 1, ?, ?, ?)
+           ON CONFLICT(post_id, project_id, channel) DO UPDATE SET
+               attempts=portfolio_notifications.attempts + 1,
+               last_attempt_at=excluded.last_attempt_at,
+               delivered_at=COALESCE(portfolio_notifications.delivered_at,
+                                     excluded.delivered_at),
+               last_error=excluded.last_error""",
+        (
+            post_id, project_id, channel, now, now if delivered else None,
+            None if delivered else error[:1000],
+        ),
+    )
+
+
+def recent_portfolio_matches(
+    conn: sqlite3.Connection, limit: int = 50,
+) -> list[dict[str, Any]]:
+    _ensure_portfolio_tables(conn)
+    rows = conn.execute(
+        """SELECT pm.post_id, pm.project_id, pm.matched_at, pm.match_score,
+                  pm.match_json
+           FROM portfolio_matches pm
+           ORDER BY pm.matched_at DESC, pm.match_score DESC
+           LIMIT ?""",
+        (max(1, min(int(limit), 500)),),
+    ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def update_score(conn: sqlite3.Connection, post_id: str, score_internal: float) -> None:

@@ -3,6 +3,7 @@ __pycache__/
 *.pyo
 .venv/
 venv/
+*.egg-info/
 .env
 .DS_Store
 db/*.sqlite

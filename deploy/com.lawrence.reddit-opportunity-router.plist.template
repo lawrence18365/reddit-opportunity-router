@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.lawrence.reddit-opportunity-router</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__RUNNER__</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__REPO_ROOT__</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>900</integer>
+  <key>StandardOutPath</key>
+  <string>__LOG_DIR__/reddit-opportunity-router.log</string>
+  <key>StandardErrorPath</key>
+  <string>__LOG_DIR__/reddit-opportunity-router.error.log</string>
+</dict>
+</plist>

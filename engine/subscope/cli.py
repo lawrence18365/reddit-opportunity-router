@@ -26,7 +26,19 @@ from typing import Any
 
 import yaml
 
-from .lib import author_vet, classify, discover, enrich, reddit, score, slack, store
+from .lib import (
+    author_vet,
+    classify,
+    discover,
+    enrich,
+    notifications,
+    portfolio,
+    portfolio_runner,
+    reddit,
+    score,
+    slack,
+    store,
+)
 
 
 def _resolve_config_dir() -> Path:
@@ -1110,6 +1122,81 @@ def cmd_status() -> None:
     }, default=str, indent=2))
 
 
+def cmd_portfolio_validate(config_path: str | None) -> None:
+    config = portfolio.load_config(config_path)
+    active = portfolio.active_projects(config)
+    print(json.dumps({
+        "status": "ok",
+        "config_path": config["_path"],
+        "projects_total": len(config["projects"]),
+        "projects_active": [project["id"] for project in active],
+        "subreddits": len(portfolio.subreddit_specs(config)),
+        "estimated_request_batches": portfolio.estimate_request_batches(
+            config, int(config.get("scanner", {}).get("batch_cost_cap", 6))
+        ),
+    }, indent=2))
+
+
+def cmd_portfolio_route(input_path: str, config_path: str | None) -> None:
+    if input_path in {"-", "/dev/stdin"}:
+        payload = json.load(sys.stdin)
+    else:
+        with open(input_path, encoding="utf-8") as handle:
+            payload = json.load(handle)
+    result = portfolio_runner.route_input(payload, portfolio_config_path=config_path)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+def cmd_portfolio_scan(
+    config_path: str | None,
+    notifications_path: str | None,
+    limit_per_sub: int | None,
+    max_requests: int | None,
+    no_notify: bool,
+    dry_run: bool,
+) -> None:
+    result = portfolio_runner.scan(
+        portfolio_config_path=config_path,
+        notification_config_path=notifications_path,
+        limit_per_sub=limit_per_sub,
+        max_requests=max_requests,
+        notify=not no_notify,
+        dry_run=dry_run,
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+def cmd_portfolio_status(
+    config_path: str | None, notifications_path: str | None, recent_limit: int,
+) -> None:
+    result = portfolio_runner.status(
+        portfolio_config_path=config_path,
+        notification_config_path=notifications_path,
+        recent_limit=recent_limit,
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+def cmd_portfolio_test_notification(notifications_path: str | None) -> None:
+    config = notifications.load_config(notifications_path)
+    match = {
+        "post_id": "notification-test",
+        "project_id": "test",
+        "project_name": "Opportunity Router",
+        "score": 99,
+        "subreddit": "test",
+        "title": "Notification delivery is configured",
+        "url": "https://reddit.com/",
+        "reason": "test alert",
+        "offer": {"cta_label": "No action required", "url": ""},
+    }
+    result = notifications.deliver(match, config)
+    print(json.dumps({
+        "channels": notifications.channel_status(config),
+        "results": result,
+    }, indent=2))
+
+
 def cmd_blog_ingest() -> None:
     """Read blog post JSON from stdin (orchestrator-provided), upsert into blog_posts."""
     payload = json.load(sys.stdin)
@@ -1200,6 +1287,46 @@ def main(argv: list[str] | None = None) -> None:
 
     sub.add_parser("status", help="Print last-run status as JSON")
 
+    portfolio_cmd = sub.add_parser(
+        "portfolio", help="Route Reddit opportunities across multiple products"
+    ).add_subparsers(dest="portfolio_cmd", required=True)
+    pv = portfolio_cmd.add_parser("validate", help="Validate the portfolio registry")
+    pv.add_argument("--config", type=str, default=None)
+
+    pr = portfolio_cmd.add_parser(
+        "route", help="Route normalized post JSON without network or database writes"
+    )
+    pr.add_argument("--input", type=str, required=True, help="JSON file, or - for stdin")
+    pr.add_argument("--config", type=str, default=None)
+
+    ps = portfolio_cmd.add_parser(
+        "scan", help="Fetch new posts, route them, persist matches, and alert"
+    )
+    ps.add_argument("--config", type=str, default=None)
+    ps.add_argument("--notifications", type=str, default=None)
+    ps.add_argument("--limit-per-sub", type=int, default=None)
+    ps.add_argument("--max-requests", type=int, default=None)
+    ps.add_argument("--no-notify", action="store_true")
+    ps.add_argument(
+        "--dry-run", action="store_true",
+        help="Fetch and route without changing cursors, database state, or sending alerts",
+    )
+
+    pst = portfolio_cmd.add_parser("status", help="Show projects, channels, and recent matches")
+    pst.add_argument("--config", type=str, default=None)
+    pst.add_argument("--notifications", type=str, default=None)
+    pst.add_argument("--recent-limit", type=int, default=20)
+
+    pn = portfolio_cmd.add_parser(
+        "test-notification", help="Send a harmless test through configured channels"
+    )
+    pn.add_argument("--notifications", type=str, default=None)
+
+    pw = portfolio_cmd.add_parser("watch", help="Continuously scan and notify")
+    pw.add_argument("--config", type=str, default=None)
+    pw.add_argument("--notifications", type=str, default=None)
+    pw.add_argument("--interval", type=int, default=None, help="Seconds, minimum 300")
+
     blog = sub.add_parser("blog", help="Blog map operations").add_subparsers(dest="blogcmd", required=True)
     blog.add_parser("ingest", help="Upsert blog post(s) from stdin JSON")
 
@@ -1234,6 +1361,32 @@ def main(argv: list[str] | None = None) -> None:
                      skip_validation=args.skip_validation)
     elif args.cmd == "status":
         cmd_status()
+    elif args.cmd == "portfolio" and args.portfolio_cmd == "validate":
+        cmd_portfolio_validate(args.config)
+    elif args.cmd == "portfolio" and args.portfolio_cmd == "route":
+        cmd_portfolio_route(args.input, args.config)
+    elif args.cmd == "portfolio" and args.portfolio_cmd == "scan":
+        cmd_portfolio_scan(
+            args.config,
+            args.notifications,
+            args.limit_per_sub,
+            args.max_requests,
+            args.no_notify,
+            args.dry_run,
+        )
+    elif args.cmd == "portfolio" and args.portfolio_cmd == "status":
+        cmd_portfolio_status(args.config, args.notifications, args.recent_limit)
+    elif args.cmd == "portfolio" and args.portfolio_cmd == "test-notification":
+        cmd_portfolio_test_notification(args.notifications)
+    elif args.cmd == "portfolio" and args.portfolio_cmd == "watch":
+        try:
+            portfolio_runner.watch(
+                portfolio_config_path=args.config,
+                notification_config_path=args.notifications,
+                interval_seconds=args.interval,
+            )
+        except KeyboardInterrupt:
+            print(json.dumps({"status": "stopped"}))
     elif args.cmd == "blog" and args.blogcmd == "ingest":
         cmd_blog_ingest()
 
