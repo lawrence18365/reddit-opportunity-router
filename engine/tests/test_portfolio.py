@@ -131,6 +131,26 @@ def test_store_deduplicates_matches_and_notifications(tmp_path):
         assert store.notification_delivered(conn, post["id"], "freshcarrier", "desktop")
 
 
+def test_store_prunes_expired_portfolio_content(tmp_path):
+    database = tmp_path / "portfolio.sqlite"
+    post = _post("expired1", "FreightBrokers", "DAT stale leads", "Need carrier leads")
+    match = {"post_id": post["id"], "project_id": "freshcarrier", "score": 80}
+    with store.connect(database) as conn:
+        store.insert_post(conn, post)
+        store.record_portfolio_match(conn, match, json.dumps(match))
+        store.record_notification_attempt(
+            conn, post["id"], "freshcarrier", "desktop", delivered=True
+        )
+        expired = int(time.time()) - 31 * 86400
+        conn.execute(
+            "UPDATE portfolio_matches SET matched_at = ? WHERE post_id = ?",
+            (expired, post["id"]),
+        )
+        conn.execute("UPDATE posts SET first_seen_at = ? WHERE id = ?", (expired, post["id"]))
+        result = store.prune_portfolio_data(conn, days=30)
+        assert result == {"matches": 1, "notifications": 1, "posts": 1}
+
+
 def test_scan_delivers_once_per_post_project_channel(tmp_path, monkeypatch):
     monkeypatch.setenv("SUBSCOPE_DATA", str(tmp_path / "data"))
     post = _post(

@@ -2,6 +2,7 @@
 
 Single source of truth for dedup (surfaced.post_id PK = post is shown at most once across all time).
 """
+
 from __future__ import annotations
 
 import os
@@ -234,8 +235,7 @@ def upsert_subreddit(conn: sqlite3.Connection, sub: dict[str, Any]) -> None:
            ON CONFLICT(name) DO UPDATE SET
                tier=excluded.tier, bucket=excluded.bucket,
                saturation=excluded.saturation, weight=excluded.weight""",
-        (sub["name"], sub["tier"], sub["bucket"],
-         sub.get("saturation"), sub.get("weight", 1.0)),
+        (sub["name"], sub["tier"], sub["bucket"], sub.get("saturation"), sub.get("weight", 1.0)),
     )
 
 
@@ -248,8 +248,16 @@ def upsert_blog_post(conn: sqlite3.Connection, blog: dict[str, Any]) -> None:
                title=excluded.title, pain=excluded.pain, saas_replaced=excluded.saas_replaced,
                persona=excluded.persona, stack=excluded.stack, keywords=excluded.keywords,
                last_refreshed_at=excluded.last_refreshed_at""",
-        (blog["url"], blog["title"], blog["pain"], blog["saas_replaced"],
-         blog["persona"], blog["stack"], kw, int(time.time())),
+        (
+            blog["url"],
+            blog["title"],
+            blog["pain"],
+            blog["saas_replaced"],
+            blog["persona"],
+            blog["stack"],
+            kw,
+            int(time.time()),
+        ),
     )
 
 
@@ -264,11 +272,21 @@ def insert_post(conn: sqlite3.Connection, post: dict[str, Any]) -> None:
            (id, subreddit, title, url, canonical_url, author, created_utc,
             score, num_comments, body, first_seen_at, score_internal, removed)
            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (post["id"], post["subreddit"], post["title"], post["url"],
-         post["canonical_url"], post["author"], post["created_utc"],
-         post["score"], post["num_comments"], post.get("body", ""),
-         int(time.time()), post.get("score_internal", 0.0),
-         1 if post.get("removed") else 0),
+        (
+            post["id"],
+            post["subreddit"],
+            post["title"],
+            post["url"],
+            post["canonical_url"],
+            post["author"],
+            post["created_utc"],
+            post["score"],
+            post["num_comments"],
+            post.get("body", ""),
+            int(time.time()),
+            post.get("score_internal", 0.0),
+            1 if post.get("removed") else 0,
+        ),
     )
 
 
@@ -322,7 +340,9 @@ def portfolio_cursor(conn: sqlite3.Connection, subreddit: str) -> str | None:
 
 
 def update_portfolio_cursor(
-    conn: sqlite3.Connection, subreddit: str, cursor: str | None,
+    conn: sqlite3.Connection,
+    subreddit: str,
+    cursor: str | None,
 ) -> None:
     _ensure_portfolio_tables(conn)
     conn.execute(
@@ -336,7 +356,9 @@ def update_portfolio_cursor(
 
 
 def portfolio_match_exists(
-    conn: sqlite3.Connection, post_id: str, project_id: str,
+    conn: sqlite3.Connection,
+    post_id: str,
+    project_id: str,
 ) -> bool:
     _ensure_portfolio_tables(conn)
     row = conn.execute(
@@ -347,7 +369,9 @@ def portfolio_match_exists(
 
 
 def record_portfolio_match(
-    conn: sqlite3.Connection, match: dict[str, Any], match_json: str,
+    conn: sqlite3.Connection,
+    match: dict[str, Any],
+    match_json: str,
 ) -> bool:
     """Persist one post-to-project match. Return True only for a new match."""
     _ensure_portfolio_tables(conn)
@@ -356,15 +380,21 @@ def record_portfolio_match(
            (post_id, project_id, matched_at, match_score, match_json)
            VALUES(?, ?, ?, ?, ?)""",
         (
-            match["post_id"], match["project_id"], int(time.time()),
-            float(match["score"]), match_json,
+            match["post_id"],
+            match["project_id"],
+            int(time.time()),
+            float(match["score"]),
+            match_json,
         ),
     )
     return cursor.rowcount == 1
 
 
 def notification_delivered(
-    conn: sqlite3.Connection, post_id: str, project_id: str, channel: str,
+    conn: sqlite3.Connection,
+    post_id: str,
+    project_id: str,
+    channel: str,
 ) -> bool:
     _ensure_portfolio_tables(conn)
     row = conn.execute(
@@ -397,14 +427,19 @@ def record_notification_attempt(
                                      excluded.delivered_at),
                last_error=excluded.last_error""",
         (
-            post_id, project_id, channel, now, now if delivered else None,
+            post_id,
+            project_id,
+            channel,
+            now,
+            now if delivered else None,
             None if delivered else error[:1000],
         ),
     )
 
 
 def recent_portfolio_matches(
-    conn: sqlite3.Connection, limit: int = 50,
+    conn: sqlite3.Connection,
+    limit: int = 50,
 ) -> list[dict[str, Any]]:
     _ensure_portfolio_tables(conn)
     rows = conn.execute(
@@ -418,12 +453,55 @@ def recent_portfolio_matches(
     return [dict(row) for row in rows]
 
 
+def prune_portfolio_data(conn: sqlite3.Connection, days: int = 30) -> dict[str, int]:
+    """Delete expired portfolio matches and unreferenced post content."""
+    _ensure_portfolio_tables(conn)
+    threshold = int(time.time()) - max(1, int(days)) * 86400
+    notifications_deleted = conn.execute(
+        """DELETE FROM portfolio_notifications
+           WHERE EXISTS (
+               SELECT 1 FROM portfolio_matches pm
+               WHERE pm.post_id = portfolio_notifications.post_id
+                 AND pm.project_id = portfolio_notifications.project_id
+                 AND pm.matched_at < ?
+           )""",
+        (threshold,),
+    ).rowcount
+    matches_deleted = conn.execute(
+        "DELETE FROM portfolio_matches WHERE matched_at < ?", (threshold,)
+    ).rowcount
+    posts_deleted = conn.execute(
+        """DELETE FROM posts
+           WHERE first_seen_at < ?
+             AND NOT EXISTS (
+                 SELECT 1 FROM portfolio_matches pm WHERE pm.post_id = posts.id
+             )
+             AND NOT EXISTS (
+                 SELECT 1 FROM surfaced s WHERE s.post_id = posts.id
+             )
+             AND NOT EXISTS (
+                 SELECT 1 FROM post_blog_refs pbr WHERE pbr.post_id = posts.id
+             )""",
+        (threshold,),
+    ).rowcount
+    return {
+        "matches": int(matches_deleted),
+        "notifications": int(notifications_deleted),
+        "posts": int(posts_deleted),
+    }
+
+
 def update_score(conn: sqlite3.Connection, post_id: str, score_internal: float) -> None:
     conn.execute("UPDATE posts SET score_internal = ? WHERE id = ?", (score_internal, post_id))
 
 
-def record_blog_ref(conn: sqlite3.Connection, post_id: str, blog_url: str,
-                    match_score: float, matched_keywords: list[str]) -> None:
+def record_blog_ref(
+    conn: sqlite3.Connection,
+    post_id: str,
+    blog_url: str,
+    match_score: float,
+    matched_keywords: list[str],
+) -> None:
     conn.execute(
         """INSERT OR REPLACE INTO post_blog_refs(post_id, blog_url, match_score, matched_keywords)
            VALUES(?, ?, ?, ?)""",
@@ -472,8 +550,7 @@ def flush_cooling_queue(conn: sqlite3.Connection, cool_minutes: int = 30) -> int
     _ensure_surfaced_state_column(conn)
     threshold = int(time.time()) - (cool_minutes * 60)
     cur = conn.execute(
-        "UPDATE surfaced SET state = 'hot' "
-        "WHERE state = 'drafting' AND surfaced_at <= ?",
+        "UPDATE surfaced SET state = 'hot' WHERE state = 'drafting' AND surfaced_at <= ?",
         (threshold,),
     )
     return cur.rowcount
@@ -506,14 +583,13 @@ def decay_old_surfaces(conn: sqlite3.Connection, days: int = 14) -> int:
 
 
 def start_run(conn: sqlite3.Connection) -> int:
-    cur = conn.execute(
-        "INSERT INTO runs(started_at) VALUES(?)", (int(time.time()),)
-    )
+    cur = conn.execute("INSERT INTO runs(started_at) VALUES(?)", (int(time.time()),))
     return int(cur.lastrowid)
 
 
-def finish_run(conn: sqlite3.Connection, run_id: int,
-               posts_fetched: int, posts_surfaced: int, notes: str = "") -> None:
+def finish_run(
+    conn: sqlite3.Connection, run_id: int, posts_fetched: int, posts_surfaced: int, notes: str = ""
+) -> None:
     conn.execute(
         """UPDATE runs SET finished_at = ?, posts_fetched = ?, posts_surfaced = ?, notes = ?
            WHERE id = ?""",
@@ -563,8 +639,7 @@ def _ensure_enrichment_cache_table(conn: sqlite3.Connection) -> None:
         )
     """)
     conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_enrich_fresh "
-        "ON enrichment_cache(provider, expires_at)"
+        "CREATE INDEX IF NOT EXISTS idx_enrich_fresh ON enrichment_cache(provider, expires_at)"
     )
 
 
@@ -619,8 +694,7 @@ def enrich_put(
                fetched_at   = excluded.fetched_at,
                expires_at   = excluded.expires_at,
                error        = excluded.error""",
-        (provider, endpoint, key_hash, payload,
-         now, now + ttl_seconds, error),
+        (provider, endpoint, key_hash, payload, now, now + ttl_seconds, error),
     )
 
 

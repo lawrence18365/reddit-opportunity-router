@@ -63,6 +63,7 @@ def scan(
     limit = int(limit_per_sub or scan_config.get("limit_per_sub", 25))
     request_budget = int(max_requests or scan_config.get("request_budget", 8))
     cost_cap = int(scan_config.get("batch_cost_cap", reddit.BATCH_COST_CAP))
+    retention_days = max(1, int(scan_config.get("retention_days", 30)))
 
     reddit.reset_fetch_stats()
     reddit.set_request_budget(request_budget)
@@ -76,6 +77,11 @@ def scan(
     notification_outcomes: list[dict[str, Any]] = []
 
     with store.connect() as conn:
+        pruned = (
+            {"matches": 0, "notifications": 0, "posts": 0}
+            if dry_run
+            else store.prune_portfolio_data(conn, days=retention_days)
+        )
         for spec in sub_specs:
             name = str(spec["name"])
             if name.casefold() in skipped_lower:
@@ -94,7 +100,8 @@ def scan(
                 if not matches:
                     continue
                 if not dry_run:
-                    store.insert_post(conn, post)
+                    stored_post = {**post, "author": "[not retained]"}
+                    store.insert_post(conn, stored_post)
                 for match in matches:
                     is_new = True
                     if not dry_run:
@@ -136,6 +143,8 @@ def scan(
         "new_match_count": len(new_matches),
         "notifications": notification_outcomes,
         "notification_channels": notifications.channel_status(notification_config),
+        "retention_days": retention_days,
+        "pruned": pruned,
         "reddit_requests": reddit.requests_used(),
         "fetch_stats": stats,
     }

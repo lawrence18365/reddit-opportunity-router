@@ -47,6 +47,9 @@ chmod 600 ~/.config/subscope/notifications.env
 Webhook secrets stay outside the repository. Each delivered alert is deduplicated by Reddit
 post, project, and channel. Failed deliveries remain retryable.
 
+Portfolio matches and unreferenced post content expire after 30 days. Reddit usernames are not
+retained by the portfolio scanner.
+
 ## Scan once
 
 ```bash

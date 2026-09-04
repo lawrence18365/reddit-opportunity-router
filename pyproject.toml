@@ -1,7 +1,7 @@
 [project]
 name = "subscope"
 version = "0.2.0"
-description = "Daily subreddit scanner: surfaces pain-pattern posts (pricing rage, churn, build-vs-buy, alternative-seeking) inside your Claude Code session. Pattern-aware, human-in-the-loop."
+description = "Human-led Reddit opportunity routing across a portfolio of products."
 authors = [{ name = "Dan Colta" }]
 license = { text = "MIT" }
 readme = "README.md"
@@ -38,9 +38,10 @@ dev = [
 subscope = "subscope.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/dancolta/subscope"
-Repository = "https://github.com/dancolta/subscope"
-Issues = "https://github.com/users/dancolta/projects/7"
+Homepage = "https://github.com/lawrence18365/reddit-opportunity-router"
+Repository = "https://github.com/lawrence18365/reddit-opportunity-router"
+Issues = "https://github.com/lawrence18365/reddit-opportunity-router/issues"
+Upstream = "https://github.com/dancolta/subscope"
 
 [build-system]
 requires = ["setuptools>=61", "wheel"]

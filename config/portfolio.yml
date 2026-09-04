@@ -5,6 +5,7 @@ scanner:
   limit_per_sub: 25
   batch_cost_cap: 10
   request_budget: 8
+  retention_days: 30
 
 # A match must hit signals from at least two distinct groups. This prevents a
 # generic word such as "quote" or "schedule" from becoming an alert by itself.

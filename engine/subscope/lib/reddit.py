@@ -40,6 +40,7 @@ fields default (score=0, num_comments=0, upvote_ratio=None, locked=False) and
 the scorer degrades gracefully (see score.py). `/user/<x>/about.json` (karma +
 age) is also 403, so fetch_user_about returns None and author_vet fails open.
 """
+
 from __future__ import annotations
 
 import html
@@ -56,6 +57,7 @@ from typing import Any
 
 try:
     import certifi
+
     _SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 except ImportError:
     _SSL_CONTEXT = ssl.create_default_context()
@@ -63,7 +65,10 @@ except ImportError:
 
 # ─── Constants ────────────────────────────────────────────────────────
 
-USER_AGENT = "subscope/0.1 (research tool, github.com/dancolta)"
+USER_AGENT = (
+    "reddit-opportunity-router/0.1 "
+    "(human-led research tool; github.com/lawrence18365/reddit-opportunity-router)"
+)
 MAX_RETRIES = 3
 BASE_BACKOFF = 2.0
 
@@ -288,6 +293,7 @@ def _header_float(headers: Any, name: str) -> float | None:
 
 # ─── Username safety ──────────────────────────────────────────────────
 
+
 def _safe_username(username: str | None) -> str | None:
     """Return a username safe for URL path interpolation, or None if invalid.
 
@@ -302,6 +308,7 @@ def _safe_username(username: str | None) -> str | None:
 
 
 # ─── URL canonicalization ─────────────────────────────────────────────
+
 
 def canonical_url(reddit_post_data: dict[str, Any]) -> str:
     """Canonicalize a Reddit post URL to https://reddit.com/comments/<t3_id>/.
@@ -322,6 +329,7 @@ def canonical_url(reddit_post_data: dict[str, Any]) -> str:
 
 
 # ─── Raw fetchers (JSON kept for parser-contract tests, XML is the live path) ──
+
 
 def fetch_json(url: str, timeout: int = 15) -> dict[str, Any] | None:
     """Fetch JSON with retry on 429 and content-type validation.
@@ -516,6 +524,7 @@ def _retry_after_delay(err: urllib.error.HTTPError, attempt: int) -> float:
 
 # ─── JSON listing parser (kept for the parse contract + canonical tests) ──
 
+
 def parse_post(child: dict[str, Any]) -> dict[str, Any] | None:
     """Normalize a Reddit JSON listing child into our post shape.
 
@@ -540,8 +549,12 @@ def parse_post(child: dict[str, Any]) -> dict[str, Any] | None:
 
     selftext = str(data.get("selftext") or "")
     author = str(data.get("author") or "[deleted]")
-    removed = bool(data.get("removed_by_category") or data.get("removed") or
-                   author == "[deleted]" or selftext == "[removed]")
+    removed = bool(
+        data.get("removed_by_category")
+        or data.get("removed")
+        or author == "[deleted]"
+        or selftext == "[removed]"
+    )
 
     # NSFW: Reddit flags posts via over_18 (post-level) and the host subreddit
     # may also be NSFW. Either one is sufficient to reject.
@@ -552,7 +565,9 @@ def parse_post(child: dict[str, Any]) -> dict[str, Any] | None:
     crosspost_parent = data.get("crosspost_parent_list") or []
     is_crosspost = bool(crosspost_parent)
     if is_crosspost:
-        parent = crosspost_parent[0] if isinstance(crosspost_parent, list) and crosspost_parent else {}
+        parent = (
+            crosspost_parent[0] if isinstance(crosspost_parent, list) and crosspost_parent else {}
+        )
         if parent.get("over_18"):
             over_18 = True
 
@@ -577,6 +592,7 @@ def parse_post(child: dict[str, Any]) -> dict[str, Any] | None:
 
 # ─── Atom entry parser (the live path) ────────────────────────────────
 
+
 def _atom_text(entry: ET.Element, tag: str) -> str:
     """Return stripped text of the first <tag> child in the Atom namespace, or ''."""
     el = entry.find(f"{_ATOM_NS}{tag}")
@@ -598,6 +614,7 @@ def _parse_iso8601_to_epoch(ts: str) -> int:
         cleaned = cleaned[:-1] + "+00:00"
     try:
         from datetime import datetime
+
         return int(datetime.fromisoformat(cleaned).timestamp())
     except (ValueError, OverflowError):
         return 0
@@ -792,8 +809,7 @@ def fetch_search(
     return fetch_feed(f"https://{RSS_HOSTS[0]}{path}", timeout=timeout)
 
 
-def fetch_subreddit_new(sub: str, limit: int = 25,
-                        timeout: int = 15) -> list[dict[str, Any]]:
+def fetch_subreddit_new(sub: str, limit: int = 25, timeout: int = 15) -> list[dict[str, Any]]:
     """Fetch /r/<sub>/new/.rss and return normalized posts (newest-first).
 
     The Atom feed is a single page of the most recent ~25 items with no cursor,
@@ -814,8 +830,9 @@ def fetch_subreddit_new(sub: str, limit: int = 25,
     return posts
 
 
-def _fetch_delta_public(sub: str, last_seen_id: str | None,
-                        max_limit: int = 50) -> list[dict[str, Any]]:
+def _fetch_delta_public(
+    sub: str, last_seen_id: str | None, max_limit: int = 50
+) -> list[dict[str, Any]]:
     """RSS path for fetch_delta. The Atom feed is a single newest-first page,
     so we fetch once, stop at last_seen_id, skip removed/locked, and cap at
     max_limit. Returns newest-first.
@@ -830,8 +847,9 @@ def _fetch_delta_public(sub: str, last_seen_id: str | None,
     return delta_from_posts(posts, last_seen_id, max_limit=max_limit)
 
 
-def delta_from_posts(posts: list[dict[str, Any]], last_seen_id: str | None,
-                     max_limit: int = 50) -> list[dict[str, Any]]:
+def delta_from_posts(
+    posts: list[dict[str, Any]], last_seen_id: str | None, max_limit: int = 50
+) -> list[dict[str, Any]]:
     """Apply the delta cut to an already-fetched, newest-first post list.
 
     Same contract as the tail of _fetch_delta_public (stop at last_seen_id,
@@ -852,8 +870,10 @@ def delta_from_posts(posts: list[dict[str, Any]], last_seen_id: str | None,
 
 # ─── Batched multi-sub fetch (the rate-limit workaround) ──────────────
 
-def plan_sub_batches(subs: list[dict[str, Any]],
-                     cost_cap: int = BATCH_COST_CAP) -> list[list[dict[str, Any]]]:
+
+def plan_sub_batches(
+    subs: list[dict[str, Any]], cost_cap: int = BATCH_COST_CAP
+) -> list[list[dict[str, Any]]]:
     """Group subs into combined-feed batches, packing greedily by saturation.
 
     A combined feed returns ONE shared page of ~100 newest entries across its
@@ -868,8 +888,7 @@ def plan_sub_batches(subs: list[dict[str, Any]],
     current: list[dict[str, Any]] = []
     current_cost = 0
     for s in subs:
-        cost = SATURATION_COST.get(str(s.get("saturation") or "").lower(),
-                                   DEFAULT_SATURATION_COST)
+        cost = SATURATION_COST.get(str(s.get("saturation") or "").lower(), DEFAULT_SATURATION_COST)
         # A single sub over the cap still gets its own batch rather than none.
         if current and current_cost + cost > cost_cap:
             batches.append(current)
@@ -881,8 +900,9 @@ def plan_sub_batches(subs: list[dict[str, Any]],
     return batches
 
 
-def fetch_multi_new(sub_names: list[str], limit: int = MULTI_FEED_LIMIT,
-                    timeout: int = 20) -> dict[str, list[dict[str, Any]]] | None:
+def fetch_multi_new(
+    sub_names: list[str], limit: int = MULTI_FEED_LIMIT, timeout: int = 20
+) -> dict[str, list[dict[str, Any]]] | None:
     """Fetch /r/<a+b+c>/new/.rss in ONE request, split back out per sub.
 
     Reddit serves a combined subreddit feed as a single Atom document whose
@@ -917,7 +937,8 @@ def fetch_multi_new(sub_names: list[str], limit: int = MULTI_FEED_LIMIT,
 
 
 def fetch_new_batched(
-    subs: list[dict[str, Any]], limit: int = MULTI_FEED_LIMIT,
+    subs: list[dict[str, Any]],
+    limit: int = MULTI_FEED_LIMIT,
     cost_cap: int = BATCH_COST_CAP,
 ) -> tuple[dict[str, list[dict[str, Any]]], list[str]]:
     """Fetch every sub's /new feed using as few requests as batching allows.
@@ -945,8 +966,9 @@ def fetch_new_batched(
     return by_sub, unfetched
 
 
-def prime_new_cache(subs: list[dict[str, Any]], limit: int = MULTI_FEED_LIMIT,
-                    cost_cap: int = BATCH_COST_CAP) -> list[str]:
+def prime_new_cache(
+    subs: list[dict[str, Any]], limit: int = MULTI_FEED_LIMIT, cost_cap: int = BATCH_COST_CAP
+) -> list[str]:
     """Batch-fetch every sub's /new feed up front so fetch_delta needs no request.
 
     Returns the names of subs no request covered (batch unreachable, bucket
@@ -962,8 +984,8 @@ def prime_new_cache(subs: list[dict[str, Any]], limit: int = MULTI_FEED_LIMIT,
 
 # ─── Public API ──────────────────────────────────────────────────────
 
-def fetch_delta(sub: str, last_seen_id: str | None,
-                max_limit: int = 50) -> list[dict[str, Any]]:
+
+def fetch_delta(sub: str, last_seen_id: str | None, max_limit: int = 50) -> list[dict[str, Any]]:
     """Daily-delta scan: posts newer than last_seen_id from /r/<sub>/new/.rss."""
     return _fetch_delta_public(sub, last_seen_id, max_limit=max_limit)
 

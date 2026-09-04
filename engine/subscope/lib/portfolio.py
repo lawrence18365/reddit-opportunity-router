@@ -245,7 +245,6 @@ def match_project(
         "body_excerpt": str(post.get("body") or "")[:400],
         "url": post.get("url", ""),
         "created_utc": int(post.get("created_utc") or 0),
-        "author": post.get("author", ""),
         "matched_signals": groups,
         "reason": "; ".join(reason_parts),
         "offer": {
